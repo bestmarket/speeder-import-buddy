@@ -1,5 +1,5 @@
 import { useServerFn } from "@tanstack/react-start";
-import { CalendarClock, Clapperboard, Loader2, Play } from "lucide-react";
+import { ArrowLeft, CalendarClock, Clapperboard, Loader2, Play } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
