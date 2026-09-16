@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Check, FileText, Loader2, Lightbulb, Trash2 } from "lucide-react";
+import { Check, Clapperboard, FileText, Loader2, Lightbulb, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import {
   deleteScript,
   generateIdeas,
+  saveChatScript,
   studioChat,
   toggleIdea,
   writeScript,
