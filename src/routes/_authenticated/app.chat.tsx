@@ -202,6 +202,32 @@ function ChatPage() {
                 <Message from={message.role} key={i}>
                   <MessageContent>
                     <MessageResponse>{message.content}</MessageResponse>
+                    {message.role === "assistant" && message.content.trim().length > 200 ? (
+                      <div className="mt-3 border-t border-border pt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!projectId || saveFromChat.isPending}
+                          onClick={() => {
+                            if (!projectId) return;
+                            setSavingIndex(i);
+                            saveFromChat.mutate({
+                              data: { projectId, text: message.content },
+                            });
+                          }}
+                        >
+                          {savingIndex === i ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending…
+                            </>
+                          ) : (
+                            <>
+                              <Clapperboard className="mr-2 h-4 w-4" /> Use this in Studio
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    ) : null}
                   </MessageContent>
                 </Message>
               ))
