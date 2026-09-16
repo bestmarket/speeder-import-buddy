@@ -104,6 +104,23 @@ function ChatPage() {
     onSuccess: () => refresh(),
   });
 
+  // Send a script the assistant just wrote (and any image prompts in it)
+  // straight into the Studio production settings.
+  const [savingIndex, setSavingIndex] = useState<number | null>(null);
+  const runSaveChatScript = useServerFn(saveChatScript);
+  const saveFromChat = useMutation({
+    mutationFn: runSaveChatScript,
+    onSuccess: async () => {
+      setSavingIndex(null);
+      await refresh();
+      toast.success("Saved — pick it in Studio under a video style");
+    },
+    onError: (e: Error) => {
+      setSavingIndex(null);
+      toast.error(e.message);
+    },
+  });
+
   const ideas = workspace.data?.ideas ?? [];
   const scripts = workspace.data?.scripts ?? [];
 
