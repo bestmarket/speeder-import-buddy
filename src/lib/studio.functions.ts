@@ -360,6 +360,67 @@ export const writeScript = createServerFn({ method: "POST" })
     return res.data;
   });
 
+/**
+ * Turns a script the assistant wrote in the chat into a real script row, so it
+ * shows up in the Studio production settings. Any image prompts the assistant
+ * suggested are kept as each scene's picture prompt.
+ */
+export const saveChatScript = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        projectId: z.string().uuid(),
+        text: z.string().min(20).max(20000),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { askAIJson } = await import("./ai.server");
+    const { supabase, userId } = context;
+
+    const project = await supabase
+      .from("projects")
+      .select("channel_profile")
+      .eq("id", data.projectId)
+      .single();
+
+    const built = await askAIJson<{
+      title: string;
+      description: string;
+      tags: string[];
+      scenes: Array<{ narration: string; visual: string }>;
+    }>(
+      "You convert a chat answer that contains a video script into a clean scene-by-scene production script. You never invent a different story: you keep the writer's words.",
+      `Channel formula (for tone only):\n${JSON.stringify(project.data?.channel_profile ?? "unknown")}\n\nThis is the assistant's chat answer. Extract the script it contains and split it into scenes.\n\n"""\n${data.text}\n"""\n\nRules:\n- Keep the spoken words as written wherever possible; only trim stage directions, headings and speaker labels out of "narration".\n- If the answer already contains image prompts, visual directions or shot descriptions, use them verbatim as that scene's "visual".\n- If a scene has no visual given, write one vivid single-frame image description for it.\n- Between 3 and 12 scenes.\n\nReturn JSON: { "title": string, "description": a YouTube description under 500 characters, "tags": array of up to 8 short tags, "scenes": [{ "narration": string, "visual": string }] }`,
+      { reasoning: "low" },
+    );
+
+    const scenes = (built.scenes ?? [])
+      .slice(0, 12)
+      .map((s) => ({
+        narration: String(s.narration ?? "").slice(0, 2000),
+        visual: String(s.visual ?? "").slice(0, 1200),
+      }))
+      .filter((s) => s.narration || s.visual);
+    if (scenes.length === 0) throw new Error("I couldn't find a script in that message.");
+
+    const res = await supabase
+      .from("scripts")
+      .insert({
+        project_id: data.projectId,
+        user_id: userId,
+        title: String(built.title ?? "Script from chat").slice(0, 200),
+        description: String(built.description ?? "").slice(0, 2000),
+        tags: (built.tags ?? []).slice(0, 12).map((t) => String(t).slice(0, 40)),
+        scenes: scenes as never,
+      })
+      .select("*")
+      .single();
+    if (res.error) throw new Error(res.error.message);
+    return res.data;
+  });
+
 export const deleteScript = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))

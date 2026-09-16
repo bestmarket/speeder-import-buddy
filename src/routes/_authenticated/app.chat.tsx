@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Check, FileText, Loader2, Lightbulb, Trash2 } from "lucide-react";
+import { Check, Clapperboard, FileText, Loader2, Lightbulb, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import {
   deleteScript,
   generateIdeas,
+  saveChatScript,
   studioChat,
   toggleIdea,
   writeScript,
@@ -101,6 +102,23 @@ function ChatPage() {
   const removeScript = useMutation({
     mutationFn: useServerFn(deleteScript),
     onSuccess: () => refresh(),
+  });
+
+  // Send a script the assistant just wrote (and any image prompts in it)
+  // straight into the Studio production settings.
+  const [savingIndex, setSavingIndex] = useState<number | null>(null);
+  const runSaveChatScript = useServerFn(saveChatScript);
+  const saveFromChat = useMutation({
+    mutationFn: runSaveChatScript,
+    onSuccess: async () => {
+      setSavingIndex(null);
+      await refresh();
+      toast.success("Saved — pick it in Studio under a video style");
+    },
+    onError: (e: Error) => {
+      setSavingIndex(null);
+      toast.error(e.message);
+    },
   });
 
   const ideas = workspace.data?.ideas ?? [];
@@ -184,6 +202,32 @@ function ChatPage() {
                 <Message from={message.role} key={i}>
                   <MessageContent>
                     <MessageResponse>{message.content}</MessageResponse>
+                    {message.role === "assistant" && message.content.trim().length > 200 ? (
+                      <div className="mt-3 border-t border-border pt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!projectId || saveFromChat.isPending}
+                          onClick={() => {
+                            if (!projectId) return;
+                            setSavingIndex(i);
+                            saveFromChat.mutate({
+                              data: { projectId, text: message.content },
+                            });
+                          }}
+                        >
+                          {savingIndex === i ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending…
+                            </>
+                          ) : (
+                            <>
+                              <Clapperboard className="mr-2 h-4 w-4" /> Use this in Studio
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    ) : null}
                   </MessageContent>
                 </Message>
               ))
